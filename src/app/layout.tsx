@@ -1,13 +1,20 @@
 import type { Metadata } from "next";
+import { Space_Grotesk } from "next/font/google";
 import "./globals.css";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.boilingpoint.ai";
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  variable: "--font-space-grotesk",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: "The Boiling Point | OpenClaw Agent Launchpad",
-  description: "Launch OpenClaw agents on Base for free and trade instantly on Solana, Ethereum, and BNB. Creator fees support Peter Steinberger.",
-  keywords: ["OpenClaw", "AI agents", "token launchpad", "Base", "Solana", "Ethereum", "BNB", "crypto", "Token Layer"],
+  title: "The Boiling Point | OpenClaw Crowdfund Launchpad",
+  description: "Launch vibe-coded coins with crowdfunding on Ethereum or Base, raise up to $25k in campaign backing, then open trading with fairer token distribution.",
+  keywords: ["OpenClaw", "crowdfund launchpad", "token launchpad", "Base", "Ethereum", "Solana", "BNB", "crypto", "Token Layer"],
   authors: [{ name: "Token Layer" }],
   creator: "Token Layer",
   publisher: "Token Layer",
@@ -20,13 +27,13 @@ export const metadata: Metadata = {
     locale: "en_US",
     url: siteUrl,
     siteName: "The Boiling Point",
-    title: "The Boiling Point | OpenClaw Agent Launchpad",
-    description: "Launch OpenClaw agents on Base for free and trade instantly on Solana, Ethereum, and BNB. The hottest spot for AI agent tokens.",
+    title: "The Boiling Point | OpenClaw Crowdfund Launchpad",
+    description: "Launch vibe-coded coins on Ethereum or Base, raise campaign backing, and distribute tokens more evenly before trading opens.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "The Boiling Point | OpenClaw Agent Launchpad",
-    description: "Launch OpenClaw agents on Base for free and trade instantly on Solana, Ethereum, and BNB. The hottest spot for AI agent tokens.",
+    title: "The Boiling Point | OpenClaw Crowdfund Launchpad",
+    description: "Crowdfund new vibe-coded token ideas on Ethereum and Base with fairer distribution and post-launch trading.",
     creator: "@steipete",
   },
   robots: {
@@ -56,7 +63,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="antialiased">
+      <body className={`${spaceGrotesk.variable} antialiased`}>
         {children}
       </body>
     </html>

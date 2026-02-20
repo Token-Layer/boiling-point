@@ -3,9 +3,14 @@
 /* OpenClaw Design System */
 :root {
   /* Backgrounds */
-  --background: #050810;
-  --surface: #0a0f1a;
+  --background: #020503;
+  --surface: #050a07;
   --elevated: #111827;
+  --matrix-green: rgba(122, 255, 41, 0.22);
+  --matrix-green-soft: rgba(122, 255, 41, 0.07);
+  --matrix-scanline: rgba(130, 255, 110, 0.028);
+  --matrix-noise: rgba(228, 255, 220, 0.028);
+  --matrix-tile-url: url("/images/matrix-tile.png");
 
   /* Accent Colors */
   --coral-bright: #ff4d4d;
@@ -37,7 +42,7 @@
   --color-text-primary: var(--text-primary);
   --color-text-secondary: var(--text-secondary);
   --color-text-muted: var(--text-muted);
-  --font-display: "Clash Display", system-ui, sans-serif;
+  --font-display: var(--font-space-grotesk), "Clash Display", system-ui, sans-serif;
   --font-body: "Satoshi", system-ui, sans-serif;
   --font-mono: "SF Mono", "Fira Code", "JetBrains Mono", monospace;
 }
@@ -53,10 +58,65 @@ html {
 }
 
 body {
-  background: var(--background);
+  background: radial-gradient(circle at 83% 32%, rgba(122, 255, 41, 0.12), transparent 30%),
+    radial-gradient(circle at 70% 72%, rgba(122, 255, 41, 0.08), transparent 34%),
+    radial-gradient(circle at 18% 18%, rgba(255, 255, 255, 0.02), transparent 20%),
+    var(--background);
   color: var(--text-primary);
   font-family: var(--font-body);
   min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+  isolation: isolate;
+}
+
+body > * {
+  position: relative;
+  z-index: 1;
+}
+
+body::before,
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+body::before {
+  background-image:
+    var(--matrix-tile-url),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0), var(--matrix-green-soft) 38%, rgba(0, 0, 0, 0)),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(140, 255, 110, 0.14) 42%, rgba(0, 0, 0, 0)),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(130, 255, 110, 0.16) 45%, rgba(0, 0, 0, 0)),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(130, 255, 110, 0.12) 40%, rgba(0, 0, 0, 0)),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(140, 255, 110, 0.18) 50%, rgba(0, 0, 0, 0)),
+    radial-gradient(circle at 1px 1px, var(--matrix-noise) 1px, transparent 1.6px),
+    radial-gradient(circle at 2px 2px, rgba(150, 255, 145, 0.04) 0.8px, transparent 1.4px);
+  background-repeat: repeat, repeat-y, repeat-y, repeat-y, repeat-y, repeat-y, repeat, repeat;
+  background-size: 760px 760px, 2px 240px, 1px 200px, 2px 260px, 1px 190px, 2px 230px, 3px 3px, 5px 5px;
+  background-position: 68% 0, 62% 0, 71% -40%, 78% -15%, 86% -65%, 93% -30%, 0 0, 0 0;
+  background-blend-mode: normal, screen, screen, screen, screen, screen, normal, normal;
+  opacity: 0.24;
+  animation: none;
+}
+
+body::after {
+  background:
+    linear-gradient(to left, rgba(0, 0, 0, 0.28), rgba(0, 0, 0, 0.8) 72%),
+    radial-gradient(circle at 86% 36%, rgba(150, 255, 70, 0.13), transparent 18%),
+    radial-gradient(circle at 74% 65%, rgba(122, 255, 41, 0.08), transparent 25%),
+    radial-gradient(circle at 10% 50%, rgba(0, 0, 0, 0.62), transparent 42%),
+    radial-gradient(circle at 50% 52%, transparent 46%, rgba(0, 0, 0, 0.78) 100%),
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent 3px,
+      var(--matrix-scanline) 4px
+    );
+  opacity: 0.9;
+  animation: none;
 }
 
 /* Custom Scrollbar */
@@ -124,4 +184,44 @@ body {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+@keyframes scanline-drift {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(0, 18px, 0);
+  }
+}
+
+@keyframes matrix-fall {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(0, 42px, 0);
+  }
+}
+
+@keyframes matrix-flicker {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  47% {
+    opacity: 0.68;
+  }
+  48% {
+    opacity: 0.53;
+  }
+  49% {
+    opacity: 0.7;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body::before,
+  body::after {
+    animation: none;
+  }
 }

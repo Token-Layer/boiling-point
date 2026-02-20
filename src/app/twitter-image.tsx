@@ -2,7 +2,7 @@ import { ImageResponse } from "next/og";
 
 export const runtime = "edge";
 
-export const alt = "The Boiling Point - OpenClaw Agent Launchpad";
+export const alt = "The Boiling Point - OpenClaw Crowdfund Launchpad";
 export const size = {
   width: 1200,
   height: 630,
@@ -113,7 +113,7 @@ export default async function Image() {
             }}
           >
             <span style={{ color: "#ff4d4d", fontWeight: 700 }}>OpenClaw</span>
-            <span style={{ color: "#8892b0", fontWeight: 500 }}>Agent Launchpad</span>
+            <span style={{ color: "#8892b0", fontWeight: 500 }}>Crowdfund Launchpad</span>
           </div>
 
           {/* Free launches text */}
@@ -126,7 +126,7 @@ export default async function Image() {
               marginBottom: "24px",
             }}
           >
-            Free launches on Base • Trade everywhere
+            Fund on Ethereum or Base • Distribute fairly
           </div>
 
           {/* Chain icons - Base emphasized */}

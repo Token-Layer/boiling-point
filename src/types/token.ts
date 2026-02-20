@@ -33,6 +33,12 @@ export interface Token {
   price_change_24h: number | null;
   price_change_24h_percent: number | null;
   trx: number | null;
+  website_url?: string | null;
+  twitter_url?: string | null;
+  telegram_url?: string | null;
+  discord_url?: string | null;
+  github_url?: string | null;
+  metadata?: Record<string, unknown> | null;
   token_addresses: TokenAddress[];
 }
 

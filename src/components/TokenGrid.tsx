@@ -31,7 +31,17 @@ function ListIcon({ className }: { className?: string }) {
   );
 }
 
-export default function TokenGrid() {
+interface TokenGridProps {
+  title?: string;
+  description?: string;
+  sectionId?: string;
+}
+
+export default function TokenGrid({
+  title = "Agent Tokens",
+  description,
+  sectionId,
+}: TokenGridProps) {
   const [tokens, setTokens] = useState<Token[]>([]);
   const [filter, setFilter] = useState<FilterType>("all");
   const [sortBy, setSortBy] = useState<SortOption>("created_at");
@@ -95,18 +105,25 @@ export default function TokenGrid() {
     setOffset(0);
   };
 
+  const hasDescription = typeof description === "string" && description.length > 0;
+
   return (
-    <section className="py-12 px-6">
+    <section id={sectionId} className="py-12 px-6">
       <div className="max-w-6xl mx-auto">
         {/* Header with controls */}
         <div className="flex flex-col gap-4 mb-8">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <h2
-              className="text-2xl md:text-3xl font-bold text-[#f0f4ff]"
-              style={{ fontFamily: "var(--font-display)" }}
-            >
-              Agent Tokens
-            </h2>
+            <div>
+              <h2
+                className="text-2xl md:text-3xl font-bold text-[#f0f4ff]"
+                style={{ fontFamily: "var(--font-display)" }}
+              >
+                {title}
+              </h2>
+              {hasDescription && (
+                <p className="text-sm text-[#8892b0] mt-1">{description}</p>
+              )}
+            </div>
 
             <div className="flex items-center gap-3 flex-wrap">
               {/* View Mode Toggle */}

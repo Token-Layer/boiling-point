@@ -1,13 +1,15 @@
-import Header from "@/components/Header";
-import FeaturedTokenSection from "@/components/FeaturedTokenSection";
+import LaunchpadOverview from "@/components/LaunchpadOverview";
 import TokenGrid from "@/components/TokenGrid";
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-[#050810]">
-      <Header />
-      <FeaturedTokenSection />
-      <TokenGrid />
+    <main className="min-h-screen">
+      <LaunchpadOverview />
+      <TokenGrid
+        sectionId="recently-launched"
+        title="Recently Launched Tokens"
+        description="Graduated tokens and active markets."
+      />
 
       {/* Footer */}
       <footer className="py-8 px-6 border-t border-[rgba(136,146,176,0.15)]">
