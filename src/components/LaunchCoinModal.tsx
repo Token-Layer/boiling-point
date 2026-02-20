@@ -2,6 +2,7 @@
 
 import { ChangeEvent, FormEvent, useState } from "react";
 import Image from "next/image";
+import { useAccount } from "wagmi";
 
 type LaunchFormState = {
   name: string;
@@ -73,6 +74,7 @@ function fileToBase64(file: File): Promise<string> {
 }
 
 export default function LaunchCoinModal() {
+  const { address, chainId, isConnected } = useAccount();
   const [isOpen, setIsOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [readingImage, setReadingImage] = useState(false);
@@ -136,6 +138,12 @@ export default function LaunchCoinModal() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    if (!isConnected || !address) {
+      setError("Connect your wallet before creating a launch transaction.");
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
     setResponse(null);
@@ -162,6 +170,8 @@ export default function LaunchCoinModal() {
         links: Object.values(links).some(Boolean) ? links : undefined,
         tags: cleanString(form.tags)?.split(",").map((tag) => tag.trim()).filter(Boolean),
         type: "coin",
+        creatorWalletAddress: address,
+        creatorChainId: chainId,
       };
 
       const res = await fetch("/api/tokens/create-transaction", {
@@ -188,9 +198,10 @@ export default function LaunchCoinModal() {
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="inline-flex items-center justify-center px-5 py-3 rounded-xl bg-gradient-to-r from-[#00e5cc] to-[#14b8a6] text-[#041217] text-sm font-semibold hover:brightness-110 transition-all"
+        disabled={!isConnected}
+        className="inline-flex items-center justify-center px-5 py-3 rounded-xl bg-gradient-to-r from-[#00e5cc] to-[#14b8a6] text-[#041217] text-sm font-semibold hover:brightness-110 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
       >
-        Launch Coin
+        {isConnected ? "Launch Coin" : "Connect Wallet to Launch"}
       </button>
 
       {isOpen && (
@@ -210,6 +221,11 @@ export default function LaunchCoinModal() {
             </div>
 
             <form onSubmit={handleSubmit} className="p-5 space-y-5">
+              <p className="text-xs text-[#9aa6c7]">
+                Connected wallet:{" "}
+                {isConnected && address ? `${address.slice(0, 6)}...${address.slice(-4)}` : "not connected"}
+              </p>
+
               <div className="grid md:grid-cols-2 gap-4">
                 <label className="block">
                   <span className="text-xs text-[#8892b0]">Token Name *</span>
@@ -384,7 +400,7 @@ export default function LaunchCoinModal() {
               <div className="flex items-center gap-3">
                 <button
                   type="submit"
-                  disabled={submitting || readingImage || readingBanner || !form.image}
+                  disabled={submitting || readingImage || readingBanner || !form.image || !isConnected}
                   className="px-5 py-2.5 rounded-lg text-sm font-semibold bg-gradient-to-r from-[#00e5cc] to-[#14b8a6] text-[#041217] disabled:opacity-60"
                 >
                   {submitting ? "Creating..." : "Create Launch Transaction"}

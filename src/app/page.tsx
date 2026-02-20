@@ -1,9 +1,11 @@
 import LaunchpadOverview from "@/components/LaunchpadOverview";
 import TokenGrid from "@/components/TokenGrid";
+import TopNav from "@/components/TopNav";
 
 export default function Home() {
   return (
     <main className="min-h-screen">
+      <TopNav />
       <LaunchpadOverview />
       <TokenGrid
         sectionId="recently-launched"

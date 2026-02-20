@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Space_Grotesk } from "next/font/google";
+import WalletProviders from "@/components/WalletProviders";
 import "./globals.css";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.boilingpoint.ai";
@@ -64,7 +65,7 @@ export default function RootLayout({
         />
       </head>
       <body className={`${spaceGrotesk.variable} antialiased`}>
-        {children}
+        <WalletProviders>{children}</WalletProviders>
       </body>
     </html>
   );
