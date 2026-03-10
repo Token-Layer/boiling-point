@@ -8,7 +8,7 @@ export default function TopNav() {
       <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
         <Link href="/" className="inline-flex items-center gap-3">
           <Image
-            src="/images/logo.jpeg"
+            src="/images/boiling-point-logo.png"
             alt="The Boiling Point"
             width={34}
             height={34}

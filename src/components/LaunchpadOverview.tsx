@@ -152,6 +152,13 @@ const ORBIT_CHAINS: Array<{ chain: "solana" | "bnb" | "base" | "monad" | "polygo
   { chain: "base", x: 31, y: 78 },
   { chain: "solana", x: 18, y: 39 },
 ];
+const HOW_IT_WORKS_CHAINS = [
+  { name: "Ethereum", icon: "/images/icons/ethereum.svg" },
+  { name: "Base", icon: "/images/icons/base.svg" },
+  { name: "Solana", icon: "/images/icons/solana.svg" },
+  { name: "BNB", icon: "/images/icons/bnb.svg" },
+  { name: "Polygon", icon: "/images/icons/polygon.svg" },
+];
 
 function formatCompactUsd(value: number) {
   return new Intl.NumberFormat("en-US", {
@@ -639,6 +646,110 @@ function CampaignCard({ campaign }: { campaign: Campaign }) {
   );
 }
 
+function HowItWorksModal() {
+  const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsOpen(false);
+    };
+
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onEscape);
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      window.removeEventListener("keydown", onEscape);
+    };
+  }, [isOpen]);
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setIsOpen(true)}
+        className="inline-flex items-center justify-center px-5 py-3 rounded-xl bg-[#111827] border border-[rgba(136,146,176,0.2)] text-[#f0f4ff] text-sm font-medium hover:border-[rgba(0,229,204,0.35)] transition-colors"
+      >
+        How It Works
+      </button>
+
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-[120] bg-black/70 backdrop-blur-sm p-0 md:p-4 flex items-end md:items-center justify-center"
+          onClick={() => setIsOpen(false)}
+          role="presentation"
+        >
+          <div
+            className="w-full md:max-w-2xl rounded-t-3xl md:rounded-2xl bg-[#0a0f1a] border border-[rgba(136,146,176,0.2)] max-h-[88vh] overflow-y-auto"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="How OpenClaw works"
+          >
+            <div className="sticky top-0 z-10 bg-[#0a0f1a]/95 backdrop-blur border-b border-[rgba(136,146,176,0.15)] px-5 py-4 flex items-center justify-between">
+              <h2 className="text-xl md:text-2xl font-bold text-[#f0f4ff]" style={{ fontFamily: "var(--font-display)" }}>
+                How OpenClaw Works
+              </h2>
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                className="text-sm text-[#8892b0] hover:text-[#f0f4ff] transition-colors"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="px-5 py-5 md:px-7 md:py-6 space-y-5">
+              <p className="text-[#f0f4ff] text-base leading-relaxed">
+                Kickstart your vibe-coded MVP and get $10k from the crowd. Born on Ethereum. Instantly tradable across every major chain. Censorship-resistant, permissionless, unstoppable.
+              </p>
+
+              <ol className="space-y-3">
+                <li className="rounded-xl border border-[rgba(136,146,176,0.2)] bg-[#111827]/70 p-4">
+                  <p className="text-sm text-[#5a6480] mb-1">Step 1</p>
+                  <p className="text-[#f0f4ff]">Create a coin for your vibe-coded MVP - make sure you provide a demo link.</p>
+                </li>
+                <li className="rounded-xl border border-[rgba(136,146,176,0.2)] bg-[#111827]/70 p-4">
+                  <p className="text-sm text-[#5a6480] mb-1">Step 2</p>
+                  <p className="text-[#f0f4ff]">The crowd validates your idea and invest.</p>
+                </li>
+                <li className="rounded-xl border border-[rgba(136,146,176,0.2)] bg-[#111827]/70 p-4">
+                  <p className="text-sm text-[#5a6480] mb-1">Step 3</p>
+                  <p className="text-[#f0f4ff]">
+                    When your token graduates, you receive $10k with ongoing trading fees. Your coin is instantly tradable across the most liquid chains.
+                  </p>
+                </li>
+              </ol>
+
+              <p className="text-sm text-[#9aa6c7] leading-relaxed">
+                Graduation: Your coin graduates at $100,000 USDT market cap (about $26,400 USDT raised). On graduation, creators receive $10,000 USDT and $15,000 USDT is seeded as Ethereum liquidity on Uniswap.
+              </p>
+
+              <div>
+                <p className="text-sm uppercase tracking-[0.2em] text-[#00e5cc] font-semibold">Major Chains</p>
+                <div className="mt-3 flex flex-wrap gap-2.5">
+                  {HOW_IT_WORKS_CHAINS.map((chain) => (
+                    <span
+                      key={chain.name}
+                      className="inline-flex items-center gap-2 rounded-lg border border-[rgba(136,146,176,0.18)] bg-[#111827]/80 px-3 py-1.5 text-xs text-[#c9d4ef]"
+                    >
+                      <Image src={chain.icon} alt={chain.name} width={14} height={14} className="h-3.5 w-3.5" />
+                      {chain.name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 export default function LaunchpadOverview() {
   const [selectedLiveTag, setSelectedLiveTag] = useState<string>("All");
   const [selectedStatus, setSelectedStatus] = useState<(typeof STATUS_FILTERS)[number]>("all");
@@ -680,12 +791,7 @@ export default function LaunchpadOverview() {
                 </p>
                 <div className="mt-5 flex flex-wrap gap-3">
                   <LaunchCoinModal />
-                  <a
-                    href="#recently-launched"
-                    className="inline-flex items-center justify-center px-5 py-3 rounded-xl bg-[#111827] border border-[rgba(136,146,176,0.2)] text-[#f0f4ff] text-sm font-medium hover:border-[rgba(0,229,204,0.35)] transition-colors"
-                  >
-                    Browse Tokens
-                  </a>
+                  <HowItWorksModal />
                 </div>
               </div>
             </div>

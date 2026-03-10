@@ -1,0 +1,25 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="ringGradient" x1="96" y1="112" x2="416" y2="400" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#31DFD4"/>
+      <stop offset="1" stop-color="#3C78E7"/>
+    </linearGradient>
+  </defs>
+  <path
+    d="M165 370C135 334 117 288 117 238C117 124 209 32 323 32C437 32 529 124 529 238C529 352 437 444 323 444C257 444 199 414 165 370"
+    transform="translate(-67 38)"
+    stroke="url(#ringGradient)"
+    stroke-width="40"
+    stroke-linecap="round"
+  />
+  <circle cx="256" cy="198" r="18" fill="#31DFD4"/>
+  <circle cx="305" cy="196" r="15" fill="#31DFD4"/>
+  <circle cx="356" cy="225" r="13" fill="#31DFD4"/>
+  <circle cx="386" cy="273" r="11" fill="#31DFD4"/>
+  <circle cx="381" cy="321" r="12" fill="#31DFD4"/>
+  <circle cx="338" cy="357" r="12" fill="#31DFD4"/>
+  <circle cx="290" cy="369" r="11" fill="#31DFD4"/>
+  <circle cx="234" cy="349" r="13" fill="#31DFD4"/>
+  <circle cx="196" cy="301" r="15" fill="#31DFD4"/>
+  <circle cx="199" cy="244" r="17" fill="#31DFD4"/>
+</svg>

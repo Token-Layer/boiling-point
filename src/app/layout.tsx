@@ -20,8 +20,8 @@ export const metadata: Metadata = {
   creator: "Token Layer",
   publisher: "Token Layer",
   icons: {
-    icon: "/images/logo.jpeg",
-    apple: "/images/logo.jpeg",
+    icon: "/images/boiling-point-logo.png",
+    apple: "/images/boiling-point-logo.png",
   },
   openGraph: {
     type: "website",

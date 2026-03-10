@@ -368,7 +368,7 @@ export default function Header() {
           <div className="mb-10 relative group pointer-events-auto">
             <div className="absolute inset-0 bg-[#ff4d4d] opacity-30 blur-2xl rounded-full scale-150 group-hover:opacity-50 transition-opacity duration-500" />
             <Image
-              src="/images/logo.jpeg"
+              src="/images/boiling-point-logo.png"
               alt="The Boiling Point Logo"
               width={140}
               height={140}
@@ -376,14 +376,6 @@ export default function Header() {
               priority
             />
           </div>
-
-          {/* Title with better typography */}
-          <h1
-            className="text-5xl md:text-7xl lg:text-8xl font-bold mb-6 tracking-tight"
-            style={{ fontFamily: "var(--font-display)" }}
-          >
-            <span className="text-gradient">The Boiling Point</span>
-          </h1>
 
           {/* Subtitle */}
           <p
