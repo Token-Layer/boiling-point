@@ -1,47 +1,92 @@
 # The Boiling Point
 
-The hottest spot for [OpenClaw](https://openclaw.ai) agents — powered by [Token Layer](https://tokenlayer.network).
+A new era for vibe-coded apps.
 
-**Launch. Trade. Own.**
+The Boiling Point is a new crowdfund launchpad, powered by the TokenLayer protocol.
+Launch on Ethereum, let the crowd validate your idea, then open trading across major chains.
 
-Turn your OpenClaw assistant into a tradeable token. Deploy on Base for free, trade instantly across Solana, Ethereum, and BNB Chain.
+## Back to Ethereum. Back to belief.
 
-## Features
+Strangers once funded revolutions here. Now they fund you, $10k at a time.
 
-- **Free Token Launches** — Deploy your agent token on Base at zero cost
-- **Multi-Chain Liquidity** — Instant trading across 3 major chains
-- **OpenClaw Integration** — Seamlessly tokenize any OpenClaw assistant
-- **4% Cashback** — Agents onboard with [@steipete](https://x.com/steipete)'s referral code and earn 4% cashback on every trade, on top of creator fees
-- **Supporting OpenClaw** — As a thank you, @steipete earns up to 10% of protocol fees from all Boiling Point agent trades
+- Ethereum at the core
+- Powered by the crowd
+- Distributed everywhere through TokenLayer rails
 
-## Quick Start
+## How It Works
+
+1. Create a coin for your vibe-coded MVP and include a demo link.
+2. The crowd backs your campaign during the bonding-curve phase.
+3. On graduation, creator rewards unlock and trading expands across liquid chains.
+
+Graduation target:
+- Graduates at `$100,000` USDT market cap (about `$26,400` raised)
+- Creator receives `$10,000` USDT
+- `$15,000` USDT is seeded as Ethereum liquidity on Uniswap
+
+## BoilingPoint Economics
+
+- 4% fee discount for launchers and traders onboarded via BoilingPoint
+- BoilingPoint earns protocol-fee share at no extra cost to users
+- Generated fees are directed to `$BISK` buybacks
+
+## Why TokenLayer Protocol
+
+- Multi-chain token lifecycle from launch to post-graduation trading
+- Action endpoints for token creation and execution flows
+- Info endpoints for token discovery and quote flows
+- Builder/referral primitives via `BUILDER_CODE`, `BUILDER_FEE_BPS`, and `NEXT_PUBLIC_REF_ADDRESS`
+
+## Local Development
 
 ```bash
-# Install dependencies
 npm install
-
-# Run the development server
+cp .env.example .env.local
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to see the launchpad.
+Open [http://localhost:3000](http://localhost:3000).
 
-## For Lobsters
+## Environment
 
-Tokenize your OpenClaw assistant with one command:
+Set at least one server auth method:
+
+- `TOKEN_LAYER_PRIVATE_KEY` (preferred)
+- `TOKEN_LAYER_API_KEY`
+
+Common config:
+
+- `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`
+- `NEXT_PUBLIC_INITIAL_CHAIN` (default: `base`)
+- `NEXT_PUBLIC_DESTINATION_CHAINS` (default: `solana,ethereum,bnb`)
+- `BUILDER_CODE`
+- `BUILDER_FEE_BPS`
+- `NEXT_PUBLIC_REF_ADDRESS`
+- `NEXT_PUBLIC_FEATURED_TOKEN_ID`
+- `TOKEN_LAYER_API_URL` (optional override)
+- `TOKEN_LAYER_AUTH_CHAIN_ID` and `TOKEN_LAYER_AUTH_RPC_URL`
+
+See [.env.example](./.env.example) for full values and examples.
+
+## TokenLayer Integration Points
+
+- `src/lib/token-layer.ts`: TokenLayer SDK client setup (wallet or API key auth)
+- `src/app/api/tokens/create-token-endpoint/route.ts`: create-token action endpoint
+- `src/app/api/tokens/route.ts`: token list and filtering endpoint
+- `src/app/api/tokens/quote-token/route.ts`: quote endpoint used for launch-time buy estimates
+
+## Scripts
 
 ```bash
-clawhub install boiling-point
+npm run dev
+npm run build
+npm run start
+npm run lint
 ```
-
-## Tech Stack
-
-- [Next.js](https://nextjs.org) — React framework
-- [Token Layer](https://tokenlayer.network) — Multi-chain token infrastructure
-- [OpenClaw](https://openclaw.ai) — AI agent platform
 
 ## Links
 
-- [OpenClaw](https://openclaw.ai)
-- [Token Layer](https://tokenlayer.network)
-- [@steipete](https://x.com/steipete)
+- X: [@BoilingPoint_tl](https://x.com/BoilingPoint_tl)
+- TokenLayer: [tokenlayer.network](https://tokenlayer.network)
+- OpenClaw: [openclaw.ai](https://openclaw.ai)
+- Repo: [Token-Layer/openclaw-launchpad](https://github.com/Token-Layer/openclaw-launchpad)
