@@ -1,8 +1,9 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useState } from "react";
-import Image from "next/image";
+import { ChangeEvent, FormEvent, KeyboardEvent, useEffect, useState } from "react";
+import type { CreateTokenResult, QuoteTokenInfoResponse } from "@token-layer/sdk-typescript";
 import { useAccount } from "wagmi";
+import TransactionExecutionModal from "@/components/TransactionExecutionModal";
 
 type LaunchFormState = {
   name: string;
@@ -13,33 +14,17 @@ type LaunchFormState = {
   banner: string;
   bannerName: string;
   video: string;
-  chainSlug: string;
-  website: string;
+  demoLink: string;
   twitter: string;
   youtube: string;
   discord: string;
   telegram: string;
-  tags: string;
 };
 
-type CreateTokenTransactionResponse = {
-  success: boolean;
-  metadata?: {
-    hubUrl: string;
-  };
-  error?: string;
-};
-
-const LAUNCH_CHAIN = "ethereum";
-const HARDCODED_DESTINATION_CHAINS = ["base", "ethereum", "bnb", "solana", "monad"];
-
-const CHAIN_ICONS: Record<string, string> = {
-  base: "/images/icons/base.svg",
-  ethereum: "/images/icons/ethereum.svg",
-  solana: "/images/icons/solana.svg",
-  bnb: "/images/icons/bnb.svg",
-  monad: "/images/icons/monad.svg",
-};
+type CreateTokenTransactionResponse = CreateTokenResult | { success: false; error?: string };
+type QuoteTokenResponse =
+  | { success: true; quote: QuoteTokenInfoResponse }
+  | { success: false; error?: string };
 
 const DEFAULT_FORM: LaunchFormState = {
   name: "",
@@ -50,13 +35,11 @@ const DEFAULT_FORM: LaunchFormState = {
   banner: "",
   bannerName: "",
   video: "",
-  chainSlug: LAUNCH_CHAIN,
-  website: "",
+  demoLink: "",
   twitter: "",
   youtube: "",
   discord: "",
   telegram: "",
-  tags: "",
 };
 
 function cleanString(value: string): string | undefined {
@@ -73,36 +56,69 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
+function getQuotedOutputAmount(quote: QuoteTokenInfoResponse | null): number | null {
+  if (!quote) return null;
+  const amount = quote.data?.outputAmount;
+  return Number.isFinite(amount) ? amount : null;
+}
+
+function formatTokenAmount(value: number): string {
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 6,
+  }).format(value);
+}
+
 export default function LaunchCoinModal() {
-  const { address, chainId, isConnected } = useAccount();
+  const { address, isConnected } = useAccount();
   const [isOpen, setIsOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [quoting, setQuoting] = useState(false);
   const [readingImage, setReadingImage] = useState(false);
   const [readingBanner, setReadingBanner] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [response, setResponse] = useState<CreateTokenTransactionResponse | null>(null);
   const [form, setForm] = useState<LaunchFormState>(DEFAULT_FORM);
+  const [socialsOpen, setSocialsOpen] = useState(false);
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState("");
+  const [pendingPayload, setPendingPayload] = useState<Record<string, unknown> | null>(null);
+  const [showInitialBuyModal, setShowInitialBuyModal] = useState(false);
+  const [initialBuyAmount, setInitialBuyAmount] = useState("");
+  const [quoteData, setQuoteData] = useState<QuoteTokenInfoResponse | null>(null);
+  const [quoteError, setQuoteError] = useState<string | null>(null);
+  const [pendingTransactions, setPendingTransactions] = useState<Record<string, unknown>[]>([]);
+  const [showTransactionModal, setShowTransactionModal] = useState(false);
+  const [txSummary, setTxSummary] = useState<{
+    tokenName: string;
+    tokenSymbol: string;
+    amountInUsd?: number;
+    estimatedTokensOut?: number;
+    tokenImage?: string;
+  } | null>(null);
+  const quotedOutputAmount = getQuotedOutputAmount(quoteData);
+  const displayTokenSymbol = form.symbol.trim().toUpperCase() || "TOKEN";
 
   const closeModal = () => {
     setIsOpen(false);
     setSubmitting(false);
+    setQuoting(false);
     setReadingImage(false);
+    setReadingBanner(false);
     setError(null);
     setResponse(null);
     setForm(DEFAULT_FORM);
+    setSocialsOpen(false);
+    setTags([]);
+    setTagInput("");
+    setPendingPayload(null);
+    setShowInitialBuyModal(false);
+    setInitialBuyAmount("");
+    setQuoteData(null);
+    setQuoteError(null);
+    setPendingTransactions([]);
+    setShowTransactionModal(false);
+    setTxSummary(null);
   };
-
-  const chainLabel = (slug: string) =>
-    slug.charAt(0).toUpperCase() + slug.slice(1);
-
-  const ChainBadge = ({ slug }: { slug: string }) => (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#111827] border border-[rgba(136,146,176,0.2)] text-xs text-[#f0f4ff]">
-      {CHAIN_ICONS[slug] && (
-        <Image src={CHAIN_ICONS[slug]} alt={slug} width={14} height={14} className="w-3.5 h-3.5" />
-      )}
-      {chainLabel(slug)}
-    </span>
-  );
 
   const handleImageChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -136,48 +152,58 @@ export default function LaunchCoinModal() {
     }
   };
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const addTag = (rawValue: string) => {
+    const normalized = rawValue.trim().replace(/\s+/g, "-").toLowerCase();
+    if (!normalized || tags.includes(normalized)) return;
+    setTags((prev) => [...prev, normalized]);
+  };
 
-    if (!isConnected || !address) {
-      setError("Connect your wallet before creating a launch transaction.");
+  const removeTag = (tagToRemove: string) => {
+    setTags((prev) => prev.filter((tag) => tag !== tagToRemove));
+  };
+
+  const handleTagKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "," || event.key === "Enter") {
+      event.preventDefault();
+      addTag(tagInput);
+      setTagInput("");
+    }
+
+    if (event.key === "Backspace" && !tagInput && tags.length > 0) {
+      setTags((prev) => prev.slice(0, -1));
+    }
+  };
+
+  const getTransactionList = (data: CreateTokenTransactionResponse): Record<string, unknown>[] => {
+    if (Array.isArray(data.transactions)) {
+      return data.transactions.filter(
+        (transaction): transaction is Record<string, unknown> =>
+          Boolean(transaction) && typeof transaction === "object"
+      );
+    }
+    if (data.transaction && typeof data.transaction === "object") {
+      return [data.transaction];
+    }
+    return [];
+  };
+
+  const createTransaction = async (extraPayload?: Record<string, unknown>) => {
+    if (!pendingPayload) {
+      setError("Missing launch payload. Please try again.");
       return;
     }
 
     setSubmitting(true);
     setError(null);
-    setResponse(null);
 
     try {
-      const links = {
-        website: cleanString(form.website),
-        twitter: cleanString(form.twitter),
-        youtube: cleanString(form.youtube),
-        discord: cleanString(form.discord),
-        telegram: cleanString(form.telegram),
-      };
-
-      const payload: Record<string, unknown> = {
-        name: form.name.trim(),
-        symbol: form.symbol.trim().toUpperCase(),
-        description: form.description.trim(),
-        image: form.image,
-        chainSlug: LAUNCH_CHAIN,
-        destinationChains: HARDCODED_DESTINATION_CHAINS,
-        poolType: "startup-preseed",
-        banner: cleanString(form.banner),
-        video: cleanString(form.video),
-        links: Object.values(links).some(Boolean) ? links : undefined,
-        tags: cleanString(form.tags)?.split(",").map((tag) => tag.trim()).filter(Boolean),
-        type: "coin",
-        creatorWalletAddress: address,
-        creatorChainId: chainId,
-      };
-
-      const res = await fetch("/api/tokens/create-transaction", {
+      const res = await fetch("/api/tokens/create-token-endpoint", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          ...pendingPayload,
+          ...extraPayload,
+        }),
       });
 
       const data = (await res.json()) as CreateTokenTransactionResponse;
@@ -186,10 +212,156 @@ export default function LaunchCoinModal() {
       }
 
       setResponse(data);
+      const transactions = getTransactionList(data);
+      if (transactions.length > 0) {
+        setPendingTransactions(transactions);
+        setShowTransactionModal(true);
+      } else {
+        setPendingTransactions([]);
+        setShowTransactionModal(false);
+      }
+      const amountInRaw =
+        typeof extraPayload?.amountIn === "number"
+          ? extraPayload.amountIn
+          : typeof extraPayload?.amountIn === "string"
+            ? Number(extraPayload.amountIn)
+            : undefined;
+      setTxSummary({
+        tokenName: form.name.trim(),
+        tokenSymbol: form.symbol.trim().toUpperCase(),
+        amountInUsd:
+          amountInRaw !== undefined && Number.isFinite(amountInRaw) ? amountInRaw : undefined,
+        estimatedTokensOut: quotedOutputAmount ?? undefined,
+        tokenImage: form.image || undefined,
+      });
+      setShowInitialBuyModal(false);
+      setPendingPayload(null);
+      setInitialBuyAmount("");
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "An error occurred.");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!isConnected || !address) {
+      setError("Connect your wallet before creating a launch transaction.");
+      return;
+    }
+
+    setError(null);
+    setResponse(null);
+
+    const links = {
+      website: cleanString(form.demoLink),
+      twitter: cleanString(form.twitter),
+      youtube: cleanString(form.youtube),
+      discord: cleanString(form.discord),
+      telegram: cleanString(form.telegram),
+    };
+
+    const payload: Record<string, unknown> = {
+      name: form.name.trim(),
+      symbol: form.symbol.trim().toUpperCase(),
+      description: form.description.trim(),
+      image: form.image,
+      poolType: "startup-preseed",
+      banner: cleanString(form.banner),
+      video: cleanString(form.video),
+      links: Object.values(links).some(Boolean) ? links : undefined,
+      tags: tags.length > 0 ? tags : undefined,
+      type: "coin",
+      userAddress: address,
+    };
+
+    setPendingPayload(payload);
+    setInitialBuyAmount("");
+    setQuoteData(null);
+    setShowInitialBuyModal(true);
+  };
+
+  const handleSkipInitialBuy = async () => {
+    await createTransaction();
+  };
+
+  const fetchQuote = async (amount: number): Promise<QuoteTokenInfoResponse> => {
+    setQuoting(true);
+    setQuoteError(null);
+
+    try {
+      const quoteResponse = await fetch("/api/tokens/quote-token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount }),
+      });
+
+      const quoteResult = (await quoteResponse.json()) as QuoteTokenResponse;
+      if (!quoteResponse.ok || !quoteResult.success || !quoteResult.quote) {
+        throw new Error(quoteResult.error || "Failed to quote initial purchase.");
+      }
+
+      setQuoteData(quoteResult.quote);
+      return quoteResult.quote;
+    } catch (quoteError) {
+      const message =
+        quoteError instanceof Error ? quoteError.message : "Failed to quote initial purchase.";
+      setQuoteData(null);
+      setQuoteError(message);
+      throw quoteError;
+    } finally {
+      setQuoting(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!showInitialBuyModal) return;
+
+    const trimmedAmount = initialBuyAmount.trim();
+    if (!trimmedAmount) {
+      setQuoteData(null);
+      setQuoteError(null);
+      return;
+    }
+
+    const amount = Number(trimmedAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setQuoteData(null);
+      setQuoteError(null);
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      fetchQuote(amount).catch(() => {
+        // Error state is already handled in fetchQuote.
+      });
+    }, 400);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [initialBuyAmount, showInitialBuyModal]);
+
+  const handleBuyAndCreate = async () => {
+    const amount = Number(initialBuyAmount.trim());
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setQuoteError("Enter a valid USDT amount to continue.");
+      return;
+    }
+
+    setError(null);
+
+    try {
+      if (!quoteData) {
+        await fetchQuote(amount);
+      }
+      await createTransaction({
+        amountIn: amount,
+      });
+    } catch (quoteError) {
+      if (!(quoteError instanceof Error)) {
+        setQuoteError("Failed to quote initial purchase.");
+      }
     }
   };
 
@@ -275,20 +447,19 @@ export default function LaunchCoinModal() {
                     {readingImage ? "Converting image..." : form.imageName || "Upload from your computer."}
                   </p>
                 </label>
-                <div className="block">
-                  <span className="text-xs text-[#8892b0]">Launch Chain *</span>
-                  <div className="mt-1">
-                    <span className="inline-flex items-center gap-2 rounded-lg px-3 py-2 border text-sm bg-[#00e5cc]/15 border-[rgba(0,229,204,0.35)] text-[#00e5cc]">
-                      {CHAIN_ICONS[LAUNCH_CHAIN] && (
-                        <Image src={CHAIN_ICONS[LAUNCH_CHAIN]} alt={LAUNCH_CHAIN} width={16} height={16} className="w-4 h-4" />
-                      )}
-                      Ethereum (locked)
-                    </span>
-                  </div>
-                </div>
+                <label className="block">
+                  <span className="text-xs text-[#8892b0]">Demo Link</span>
+                  <input
+                    value={form.demoLink}
+                    onChange={(e) => setForm((prev) => ({ ...prev, demoLink: e.target.value }))}
+                    className="mt-1 w-full rounded-lg bg-[#111827] border border-[rgba(136,146,176,0.2)] px-3 py-2 text-sm text-[#f0f4ff] focus:outline-none focus:border-[rgba(0,229,204,0.4)]"
+                    placeholder="https://demo.example.com"
+                  />
+                  <p className="text-[11px] text-[#5a6480] mt-1">Sent as `links.website` in create-token-endpoint.</p>
+                </label>
               </div>
 
-              <div className="grid md:grid-cols-2 gap-4">
+              <div className="grid md:grid-cols-1 gap-4">
                 <label className="block">
                   <span className="text-xs text-[#8892b0]">Banner Image Upload</span>
                   <input
@@ -300,15 +471,6 @@ export default function LaunchCoinModal() {
                   <p className="text-[11px] text-[#5a6480] mt-1">
                     {readingBanner ? "Converting banner..." : form.bannerName || "Optional."}
                   </p>
-                </label>
-                <label className="block">
-                  <span className="text-xs text-[#8892b0]">Banner URL</span>
-                  <input
-                    value={form.banner.startsWith("data:image/") ? "" : form.banner}
-                    onChange={(e) => setForm((prev) => ({ ...prev, banner: e.target.value, bannerName: "" }))}
-                    className="mt-1 w-full rounded-lg bg-[#111827] border border-[rgba(136,146,176,0.2)] px-3 py-2 text-sm text-[#f0f4ff] focus:outline-none focus:border-[rgba(0,229,204,0.4)]"
-                    placeholder="https://..."
-                  />
                 </label>
               </div>
 
@@ -324,86 +486,101 @@ export default function LaunchCoinModal() {
                 </label>
               </div>
 
-              <div>
-                <p className="text-xs text-[#8892b0]">Destination Chains</p>
-                <p className="text-[11px] text-[#5a6480] mt-1">Hardcoded route for now.</p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {HARDCODED_DESTINATION_CHAINS.map((slug) => (
-                    <ChainBadge key={slug} slug={slug} />
-                  ))}
+              <div className="rounded-xl border border-[rgba(136,146,176,0.2)] bg-[#0d1523]">
+                <button
+                  type="button"
+                  onClick={() => setSocialsOpen((prev) => !prev)}
+                  className="w-full p-3 flex items-center justify-between text-left"
+                >
+                  <span className="text-sm text-[#dce6ff]">Social Links</span>
+                  <span className="text-xs text-[#8892b0]">{socialsOpen ? "Hide" : "Show"}</span>
+                </button>
+                {socialsOpen && (
+                  <div className="px-3 pb-3 pt-1 grid md:grid-cols-2 gap-3">
+                    <label className="block">
+                      <span className="text-xs text-[#8892b0]">Twitter/X</span>
+                      <input
+                        value={form.twitter}
+                        onChange={(e) => setForm((prev) => ({ ...prev, twitter: e.target.value }))}
+                        className="mt-1 w-full rounded-lg bg-[#111827] border border-[rgba(136,146,176,0.2)] px-3 py-2 text-sm text-[#f0f4ff] focus:outline-none focus:border-[rgba(0,229,204,0.4)]"
+                        placeholder="https://x.com/..."
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-xs text-[#8892b0]">YouTube</span>
+                      <input
+                        value={form.youtube}
+                        onChange={(e) => setForm((prev) => ({ ...prev, youtube: e.target.value }))}
+                        className="mt-1 w-full rounded-lg bg-[#111827] border border-[rgba(136,146,176,0.2)] px-3 py-2 text-sm text-[#f0f4ff] focus:outline-none focus:border-[rgba(0,229,204,0.4)]"
+                        placeholder="https://..."
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-xs text-[#8892b0]">Discord</span>
+                      <input
+                        value={form.discord}
+                        onChange={(e) => setForm((prev) => ({ ...prev, discord: e.target.value }))}
+                        className="mt-1 w-full rounded-lg bg-[#111827] border border-[rgba(136,146,176,0.2)] px-3 py-2 text-sm text-[#f0f4ff] focus:outline-none focus:border-[rgba(0,229,204,0.4)]"
+                        placeholder="https://..."
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-xs text-[#8892b0]">Telegram</span>
+                      <input
+                        value={form.telegram}
+                        onChange={(e) => setForm((prev) => ({ ...prev, telegram: e.target.value }))}
+                        className="mt-1 w-full rounded-lg bg-[#111827] border border-[rgba(136,146,176,0.2)] px-3 py-2 text-sm text-[#f0f4ff] focus:outline-none focus:border-[rgba(0,229,204,0.4)]"
+                        placeholder="https://..."
+                      />
+                    </label>
+                  </div>
+                )}
+              </div>
+
+              <div className="block">
+                <span className="text-xs text-[#8892b0]">Tags</span>
+                <div className="mt-1 rounded-lg bg-[#111827] border border-[rgba(136,146,176,0.2)] px-2.5 py-2 focus-within:border-[rgba(0,229,204,0.4)]">
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 bg-[#00e5cc]/15 border border-[rgba(0,229,204,0.35)] text-xs text-[#7cf7ea]"
+                      >
+                        #{tag}
+                        <button
+                          type="button"
+                          onClick={() => removeTag(tag)}
+                          className="text-[#9bfaf0] hover:text-white leading-none"
+                          aria-label={`Remove ${tag}`}
+                        >
+                          x
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                  <input
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    onKeyDown={handleTagKeyDown}
+                    onBlur={() => {
+                      addTag(tagInput);
+                      setTagInput("");
+                    }}
+                    className="w-full bg-transparent text-sm text-[#f0f4ff] focus:outline-none"
+                    placeholder="Type a tag and press Enter or comma"
+                  />
                 </div>
               </div>
-
-              <div className="grid md:grid-cols-2 gap-4">
-                <label className="block">
-                  <span className="text-xs text-[#8892b0]">Website</span>
-                  <input
-                    value={form.website}
-                    onChange={(e) => setForm((prev) => ({ ...prev, website: e.target.value }))}
-                    className="mt-1 w-full rounded-lg bg-[#111827] border border-[rgba(136,146,176,0.2)] px-3 py-2 text-sm text-[#f0f4ff] focus:outline-none focus:border-[rgba(0,229,204,0.4)]"
-                    placeholder="https://example.com"
-                  />
-                </label>
-                <label className="block">
-                  <span className="text-xs text-[#8892b0]">Twitter/X</span>
-                  <input
-                    value={form.twitter}
-                    onChange={(e) => setForm((prev) => ({ ...prev, twitter: e.target.value }))}
-                    className="mt-1 w-full rounded-lg bg-[#111827] border border-[rgba(136,146,176,0.2)] px-3 py-2 text-sm text-[#f0f4ff] focus:outline-none focus:border-[rgba(0,229,204,0.4)]"
-                    placeholder="https://x.com/..."
-                  />
-                </label>
-              </div>
-
-              <div className="grid md:grid-cols-3 gap-4">
-                <label className="block">
-                  <span className="text-xs text-[#8892b0]">YouTube</span>
-                  <input
-                    value={form.youtube}
-                    onChange={(e) => setForm((prev) => ({ ...prev, youtube: e.target.value }))}
-                    className="mt-1 w-full rounded-lg bg-[#111827] border border-[rgba(136,146,176,0.2)] px-3 py-2 text-sm text-[#f0f4ff] focus:outline-none focus:border-[rgba(0,229,204,0.4)]"
-                    placeholder="https://..."
-                  />
-                </label>
-                <label className="block">
-                  <span className="text-xs text-[#8892b0]">Discord</span>
-                  <input
-                    value={form.discord}
-                    onChange={(e) => setForm((prev) => ({ ...prev, discord: e.target.value }))}
-                    className="mt-1 w-full rounded-lg bg-[#111827] border border-[rgba(136,146,176,0.2)] px-3 py-2 text-sm text-[#f0f4ff] focus:outline-none focus:border-[rgba(0,229,204,0.4)]"
-                    placeholder="https://..."
-                  />
-                </label>
-                <label className="block">
-                  <span className="text-xs text-[#8892b0]">Telegram</span>
-                  <input
-                    value={form.telegram}
-                    onChange={(e) => setForm((prev) => ({ ...prev, telegram: e.target.value }))}
-                    className="mt-1 w-full rounded-lg bg-[#111827] border border-[rgba(136,146,176,0.2)] px-3 py-2 text-sm text-[#f0f4ff] focus:outline-none focus:border-[rgba(0,229,204,0.4)]"
-                    placeholder="https://..."
-                  />
-                </label>
-              </div>
-
-              <label className="block">
-                <span className="text-xs text-[#8892b0]">Tags (comma-separated)</span>
-                <input
-                  value={form.tags}
-                  onChange={(e) => setForm((prev) => ({ ...prev, tags: e.target.value }))}
-                  className="mt-1 w-full rounded-lg bg-[#111827] border border-[rgba(136,146,176,0.2)] px-3 py-2 text-sm text-[#f0f4ff] focus:outline-none focus:border-[rgba(0,229,204,0.4)]"
-                  placeholder="defi,meme,agent"
-                />
-              </label>
 
               {error && <p className="text-sm text-[#ff6b6b]">{error}</p>}
 
               <div className="flex items-center gap-3">
                 <button
                   type="submit"
-                  disabled={submitting || readingImage || readingBanner || !form.image || !isConnected}
+                  disabled={submitting || quoting || readingImage || readingBanner || !form.image || !isConnected}
                   className="px-5 py-2.5 rounded-lg text-sm font-semibold bg-gradient-to-r from-[#00e5cc] to-[#14b8a6] text-[#041217] disabled:opacity-60"
                 >
-                  {submitting ? "Creating..." : "Create Launch Transaction"}
+                  Continue
                 </button>
                 <button
                   type="button"
@@ -417,7 +594,11 @@ export default function LaunchCoinModal() {
 
             {response && (
               <div className="mx-5 mb-5 p-4 rounded-xl border border-[rgba(136,146,176,0.2)] bg-[#111827]/60">
-                <p className="text-sm text-[#00e5cc] font-medium">Launch transaction created.</p>
+                <p className="text-sm text-[#00e5cc] font-medium">
+                  {pendingTransactions.length > 0
+                    ? "Launch transaction prepared. Complete wallet steps below."
+                    : "Launch transaction created."}
+                </p>
                 {response.metadata?.hubUrl && (
                   <a
                     href={response.metadata.hubUrl}
@@ -431,6 +612,89 @@ export default function LaunchCoinModal() {
               </div>
             )}
           </div>
+
+          {showInitialBuyModal && (
+            <div className="fixed inset-0 z-[110] bg-black/75 backdrop-blur-sm p-4 overflow-y-auto">
+              <div className="max-w-lg mx-auto my-16 rounded-2xl bg-[#0a0f1a] border border-[rgba(136,146,176,0.2)] p-5">
+                <h3 className="text-lg text-[#f0f4ff] font-semibold">Optional Initial Buy</h3>
+                <p className="mt-2 text-sm text-[#b8c3de]">
+                  Optionally purchase initial tokens at launch. You can skip this step and buy later on the token page.
+                </p>
+
+                <label className="block mt-4">
+                  <span className="text-xs text-[#8892b0]">USDT Amount</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    inputMode="decimal"
+                    value={initialBuyAmount}
+                    onChange={(e) => {
+                      setInitialBuyAmount(e.target.value);
+                      setQuoteData(null);
+                      setQuoteError(null);
+                    }}
+                    className="mt-1 w-full rounded-lg bg-[#111827] border border-[rgba(136,146,176,0.2)] px-3 py-2 text-sm text-[#f0f4ff] focus:outline-none focus:border-[rgba(0,229,204,0.4)]"
+                    placeholder="100"
+                  />
+                  <p className="text-[11px] text-[#5a6480] mt-1">Quote call uses `inputToken: usdc` on Token Layer.</p>
+                  {quoting && <p className="text-[11px] text-[#7cf7ea] mt-1">Fetching quote...</p>}
+                </label>
+
+                {quotedOutputAmount !== null && (
+                  <div className="mt-3 rounded-lg border border-[rgba(0,229,204,0.25)] bg-[#00e5cc]/10 p-3">
+                    <p className="text-xs text-[#7cf7ea] font-medium mb-1">Estimated Output</p>
+                    <p className="text-sm text-[#c9fff7]">
+                      {formatTokenAmount(quotedOutputAmount)} {displayTokenSymbol}
+                    </p>
+                  </div>
+                )}
+
+                {quoteError && <p className="mt-3 text-sm text-[#ff6b6b]">{quoteError}</p>}
+                {error && <p className="mt-3 text-sm text-[#ff6b6b]">{error}</p>}
+
+                <div className="mt-5 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleBuyAndCreate}
+                    disabled={submitting || quoting || quotedOutputAmount === null}
+                    className="px-4 py-2.5 rounded-lg text-sm font-semibold bg-gradient-to-r from-[#00e5cc] to-[#14b8a6] text-[#041217] disabled:opacity-60"
+                  >
+                    {quoting || submitting ? "Processing..." : "Buy & Launch"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSkipInitialBuy}
+                    disabled={submitting || quoting}
+                    className="px-4 py-2.5 rounded-lg text-sm text-[#f0f4ff] border border-[rgba(136,146,176,0.3)] hover:border-[rgba(240,244,255,0.5)] disabled:opacity-60"
+                  >
+                    Skip and Launch
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowInitialBuyModal(false);
+                      setError(null);
+                    }}
+                    disabled={submitting || quoting}
+                    className="px-4 py-2.5 rounded-lg text-sm text-[#8892b0] hover:text-[#f0f4ff] disabled:opacity-60"
+                  >
+                    Back
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <TransactionExecutionModal
+            isOpen={showTransactionModal}
+            transactions={pendingTransactions}
+            onClose={() => setShowTransactionModal(false)}
+            title="Review Transactions"
+            successUrl={response?.metadata?.hubUrl}
+            successUrlLabel="Open token page"
+            summary={txSummary}
+          />
         </div>
       )}
     </>

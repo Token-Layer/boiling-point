@@ -1,6 +1,6 @@
+import type { GetTokensV2Params } from "@token-layer/sdk-typescript";
+import type { GetTokensV2InfoResponse } from "@token-layer/sdk-typescript";
 import { GetTokensResponse, FilterType } from "@/types/token";
-
-const API_BASE_URL = "https://api.tokenlayer.network/functions/v1";
 
 interface GetTokensParams {
   filter: FilterType;
@@ -23,41 +23,26 @@ export async function getTokens({
 
   const builderCode = process.env.BUILDER_CODE;
 
-  const body: Record<string, unknown> = {
-    chains,
+  const body: GetTokensV2Params = {
+    chains: chains as GetTokensV2Params["chains"],
     order_by: "created_at",
     order_direction: "DESC",
     limit,
     offset,
     ...(builderCode && { builder_code: builderCode }),
+    verified_only: filter === "graduated",
   };
 
-  // Filter logic: graduated tokens have token_layer_id, bonding curve don't
-  if (filter === "graduated") {
-    body.verified_only = true;
-  }
-
-  const response = await fetch(`${API_BASE_URL}/get-tokens-v2`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-    next: { revalidate: 30 }, // Revalidate every 30 seconds
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch tokens: ${response.statusText}`);
-  }
-
-  const data: GetTokensResponse = await response.json();
+  const { getTokenLayerClient } = await import("@/lib/token-layer");
+  const tokenLayer = getTokenLayerClient();
+  const data = (await tokenLayer.info.getTokensV2(body)) as GetTokensV2InfoResponse;
 
   // Client-side filter for bonding curve (tokens without token_layer_id)
   if (filter === "bonding_curve") {
     data.tokens = data.tokens.filter((token) => !token.token_layer_id);
   }
 
-  return data;
+  return data as unknown as GetTokensResponse;
 }
 
 export function formatNumber(num: number | null | undefined): string {

@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { FilterType, GetTokensResponse } from "@/types/token";
+import type { GetTokensV2InfoResponse, GetTokensV2Params } from "@token-layer/sdk-typescript";
+import { FilterType } from "@/types/token";
+import { getTokenLayerClient } from "@/lib/token-layer";
 
-const API_BASE_URL =
-  process.env.TOKEN_LAYER_API_URL || "https://api.tokenlayer.network/functions/v1";
-
-type SortOption = "created_at" | "volume_24h" | "market_cap" | "price_change_24h" | "holders";
+type SortOption = GetTokensV2Params["order_by"];
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,43 +22,17 @@ export async function POST(request: NextRequest) {
 
     const chains = [initialChain, ...destinationChains];
 
-    const builderCode = process.env.BUILDER_CODE;
-
-    const apiBody: Record<string, unknown> = {
-      chains,
+    const apiBody: GetTokensV2Params = {
+      chains: chains as GetTokensV2Params["chains"],
       order_by: sortBy,
       order_direction: "DESC",
       limit,
       offset,
-      ...(builderCode && { builder_code: builderCode }),
+      verified_only: filter === "graduated",
     };
 
-    // Filter logic: graduated tokens have token_layer_id
-    if (filter === "graduated") {
-      apiBody.verified_only = true;
-    }
-
-    const headers: HeadersInit = {
-      "Content-Type": "application/json",
-    };
-
-    // Add API key if available
-    const apiKey = process.env.TOKEN_LAYER_API_KEY;
-    if (apiKey) {
-      headers["Authorization"] = `Bearer ${apiKey}`;
-    }
-
-    const response = await fetch(`${API_BASE_URL}/get-tokens-v2`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(apiBody),
-    });
-
-    if (!response.ok) {
-      throw new Error(`API error: ${response.statusText}`);
-    }
-
-    const data: GetTokensResponse = await response.json();
+    const tokenLayer = getTokenLayerClient();
+    const data = (await tokenLayer.info.getTokensV2(apiBody)) as GetTokensV2InfoResponse;
 
     // Client-side filter for bonding curve (tokens without token_layer_id)
     if (filter === "bonding_curve") {
