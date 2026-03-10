@@ -1,9 +1,5 @@
 # The Boiling Point
 
-> [!WARNING]
-> This repository is deprecated and no longer maintained.
-> Active development has moved to [Token-Layer/boiling-point](https://github.com/Token-Layer/boiling-point.git).
-
 The hottest spot for [OpenClaw](https://openclaw.ai) agents — powered by [Token Layer](https://tokenlayer.network).
 
 **Launch. Trade. Own.**
