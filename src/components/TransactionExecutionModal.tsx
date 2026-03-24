@@ -2,9 +2,10 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import { useAccount, useSwitchChain, useWalletClient } from "wagmi";
+import type { CreateTokenTransaction } from "@token-layer/sdk-typescript";
+import { useAccount, usePublicClient, useSwitchChain, useWalletClient } from "wagmi";
 
-type ApiTransaction = Record<string, unknown>;
+type ApiTransaction = CreateTokenTransaction;
 
 type StepStatus = "idle" | "awaiting_wallet" | "submitted" | "confirmed" | "failed";
 
@@ -74,9 +75,10 @@ function toRpcQuantity(value: unknown): `0x${string}` | undefined {
 }
 
 function inferStepLabel(transaction: ApiTransaction, index: number, total: number): string {
+  const transactionRecord = transaction as unknown as Record<string, unknown>;
   const explicit =
-    (typeof transaction.title === "string" && transaction.title) ||
-    (typeof transaction.label === "string" && transaction.label) ||
+    (typeof transactionRecord.title === "string" && transactionRecord.title) ||
+    (typeof transactionRecord.label === "string" && transactionRecord.label) ||
     (typeof transaction.description === "string" && transaction.description);
   if (explicit) return explicit;
   if (total > 1 && index === 0) return "Approve in wallet";
@@ -95,6 +97,7 @@ export default function TransactionExecutionModal({
 }: TransactionExecutionModalProps) {
   const { address, chainId } = useAccount();
   const { data: walletClient } = useWalletClient();
+  const publicClient = usePublicClient();
   const { switchChainAsync } = useSwitchChain();
   const [steps, setSteps] = useState<Step[]>([]);
   const [executing, setExecuting] = useState(false);
@@ -120,24 +123,17 @@ export default function TransactionExecutionModal({
   const hasFailed = steps.some((step) => step.status === "failed");
 
   const waitForTransactionReceipt = async (hash: `0x${string}`) => {
-    if (!walletClient) {
-      throw new Error("Wallet client not available.");
+    if (!publicClient) {
+      throw new Error("Public client not available.");
     }
 
     const startedAt = Date.now();
     const timeoutMs = 180_000;
     while (Date.now() - startedAt < timeoutMs) {
-      const receipt = (await walletClient.request({
-        method: "eth_getTransactionReceipt",
-        params: [hash],
-      })) as { status?: string | number } | null;
+      const receipt = await publicClient.getTransactionReceipt({ hash }).catch(() => null);
 
       if (receipt) {
-        const status =
-          typeof receipt.status === "string"
-            ? Number.parseInt(receipt.status, 16)
-            : Number(receipt.status ?? 0);
-        if (status !== 1) {
+        if (receipt.status !== "success") {
           throw new Error("Transaction reverted.");
         }
         return;
@@ -155,6 +151,8 @@ export default function TransactionExecutionModal({
       return;
     }
     if (steps.length === 0) return;
+    const activeAddress = address;
+    const activeWalletClient = walletClient;
 
     setExecuting(true);
     setError(null);
@@ -178,6 +176,7 @@ export default function TransactionExecutionModal({
         const step = steps[index];
         if (step.status === "confirmed") continue;
         const transaction = step.transaction;
+        const transactionRecord = transaction as unknown as Record<string, unknown>;
         const stepId = step.id;
 
         if (simulateOnly) {
@@ -206,11 +205,15 @@ export default function TransactionExecutionModal({
           continue;
         }
 
+        if (!activeWalletClient) {
+          throw new Error("Wallet client not available.");
+        }
+
         const targetChainId =
           typeof transaction.chainId === "number"
             ? transaction.chainId
-            : typeof transaction.chainId === "string"
-              ? Number(transaction.chainId)
+            : typeof transactionRecord.chainId === "string"
+              ? Number(transactionRecord.chainId)
               : undefined;
 
         if (targetChainId && chainId !== targetChainId) {
@@ -228,32 +231,27 @@ export default function TransactionExecutionModal({
         const to =
           typeof transaction.to === "string"
             ? transaction.to
-            : typeof transaction.target === "string"
-              ? transaction.target
+            : typeof transactionRecord.target === "string"
+              ? transactionRecord.target
               : undefined;
         if (!to) {
           throw new Error(`Missing target address for ${step.label}.`);
         }
 
-        const hash = (await walletClient.request({
-          method: "eth_sendTransaction",
-          params: [
-            {
-              from: address,
-              to,
-              data:
-                typeof transaction.data === "string"
-                  ? (transaction.data as `0x${string}`)
-                  : undefined,
-              value: toRpcQuantity(transaction.value),
-              gas: toRpcQuantity(transaction.gas ?? transaction.gasLimit),
-              gasPrice: toRpcQuantity(transaction.gasPrice),
-              maxFeePerGas: toRpcQuantity(transaction.maxFeePerGas),
-              maxPriorityFeePerGas: toRpcQuantity(transaction.maxPriorityFeePerGas),
-              nonce: toRpcQuantity(transaction.nonce),
-            },
-          ],
-        })) as `0x${string}`;
+        const hash = await activeWalletClient.sendTransaction({
+          account: activeAddress,
+          to: to as `0x${string}`,
+          data:
+            typeof transaction.data === "string" ? (transaction.data as `0x${string}`) : undefined,
+          value: toBigIntValue(transaction.value),
+          gas: toBigIntValue(transactionRecord.gas ?? transaction.gasLimit),
+          nonce:
+            typeof transactionRecord.nonce === "number"
+              ? transactionRecord.nonce
+              : typeof transactionRecord.nonce === "string"
+                ? Number(transactionRecord.nonce)
+                : undefined,
+        });
 
         setSteps((prev) =>
           prev.map((existing) =>

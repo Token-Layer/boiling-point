@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { ChainSlug, CreateTokenActionDraft } from "@token-layer/sdk-typescript";
 import { getTokenLayerClient } from "@/lib/token-layer";
+import type { CreateTokenEndpointResponse } from "@/types/token-layer-api";
 
 function getConfiguredChains() {
   const chainSlug = ((process.env.NEXT_PUBLIC_INITIAL_CHAIN || "base").trim() || "base") as ChainSlug;
@@ -22,7 +23,7 @@ export async function POST(request: NextRequest) {
           success: false,
           error:
             "Server auth is not configured. Set TOKEN_LAYER_PRIVATE_KEY or TOKEN_LAYER_API_KEY.",
-        },
+        } satisfies CreateTokenEndpointResponse,
         { status: 500 }
       );
     }
@@ -41,12 +42,12 @@ export async function POST(request: NextRequest) {
       action: actionPayload,
     });
 
-    return NextResponse.json(result);
+    return NextResponse.json(result satisfies CreateTokenEndpointResponse);
   } catch (error) {
     console.error("Error creating token transaction:", error);
     const message = error instanceof Error ? error.message : "Failed to create token transaction.";
     return NextResponse.json(
-      { success: false, error: message },
+      { success: false, error: message } satisfies CreateTokenEndpointResponse,
       { status: 500 }
     );
   }

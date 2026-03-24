@@ -104,7 +104,9 @@ function getFromRecord(record: Record<string, unknown> | null | undefined, key: 
 }
 
 function getTokenLinks(token: Token): TokenLinkItem[] {
-  const metadata = token.metadata && typeof token.metadata === "object" ? token.metadata : null;
+  const tokenRecord = token as unknown as Record<string, unknown>;
+  const metadataRaw = getFromRecord(tokenRecord, "metadata");
+  const metadata = metadataRaw && typeof metadataRaw === "object" ? (metadataRaw as Record<string, unknown>) : null;
   const metadataLinksRaw = getFromRecord(metadata, "links");
   const metadataLinks =
     metadataLinksRaw && typeof metadataLinksRaw === "object"
@@ -123,7 +125,7 @@ function getTokenLinks(token: Token): TokenLinkItem[] {
   );
 
   const websiteUrl = normalizeUrl(
-    token.website_url ??
+    getFromRecord(tokenRecord, "website_url") ??
       getFromRecord(metadata, "website_url") ??
       getFromRecord(metadata, "website") ??
       getFromRecord(metadata, "project_url") ??
@@ -131,7 +133,7 @@ function getTokenLinks(token: Token): TokenLinkItem[] {
   );
 
   const twitterUrl = normalizeUrl(
-    token.twitter_url ??
+    getFromRecord(tokenRecord, "twitter_url") ??
       getFromRecord(metadata, "twitter_url") ??
       getFromRecord(metadata, "twitter") ??
       getFromRecord(metadata, "x_url") ??
@@ -141,7 +143,7 @@ function getTokenLinks(token: Token): TokenLinkItem[] {
   );
 
   const githubUrl = normalizeUrl(
-    token.github_url ??
+    getFromRecord(tokenRecord, "github_url") ??
       getFromRecord(metadata, "github_url") ??
       getFromRecord(metadata, "github") ??
       getFromRecord(metadataLinks, "github")

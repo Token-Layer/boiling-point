@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { QuoteTokenParams } from "@token-layer/sdk-typescript";
 import { getTokenLayerClient } from "@/lib/token-layer";
+import type { QuoteTokenEndpointResponse } from "@/types/token-layer-api";
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,7 +11,7 @@ export async function POST(request: NextRequest) {
 
     if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
       return NextResponse.json(
-        { success: false, error: "Amount must be a positive number." },
+        { success: false, error: "Amount must be a positive number." } satisfies QuoteTokenEndpointResponse,
         { status: 400 }
       );
     }
@@ -26,11 +27,11 @@ export async function POST(request: NextRequest) {
     };
     const data = await tokenLayer.info.quoteToken(params);
 
-    return NextResponse.json({ success: true, quote: data });
+    return NextResponse.json({ success: true, quote: data } satisfies QuoteTokenEndpointResponse);
   } catch (error) {
     console.error("Error quoting token purchase:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to quote token purchase." },
+      { success: false, error: "Failed to quote token purchase." } satisfies QuoteTokenEndpointResponse,
       { status: 500 }
     );
   }

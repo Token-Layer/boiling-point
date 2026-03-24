@@ -1,9 +1,17 @@
 "use client";
 
 import { ChangeEvent, FormEvent, KeyboardEvent, useEffect, useState } from "react";
-import type { CreateTokenResult, QuoteTokenInfoResponse } from "@token-layer/sdk-typescript";
+import type {
+  CreateTokenResult,
+  CreateTokenTransaction,
+  QuoteTokenInfoResponse,
+} from "@token-layer/sdk-typescript";
 import { useAccount } from "wagmi";
 import TransactionExecutionModal from "@/components/TransactionExecutionModal";
+import type {
+  CreateTokenEndpointResponse,
+  QuoteTokenEndpointResponse,
+} from "@/types/token-layer-api";
 
 type LaunchFormState = {
   name: string;
@@ -20,11 +28,6 @@ type LaunchFormState = {
   discord: string;
   telegram: string;
 };
-
-type CreateTokenTransactionResponse = CreateTokenResult | { success: false; error?: string };
-type QuoteTokenResponse =
-  | { success: true; quote: QuoteTokenInfoResponse }
-  | { success: false; error?: string };
 
 const DEFAULT_FORM: LaunchFormState = {
   name: "",
@@ -76,7 +79,7 @@ export default function LaunchCoinModal() {
   const [readingImage, setReadingImage] = useState(false);
   const [readingBanner, setReadingBanner] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [response, setResponse] = useState<CreateTokenTransactionResponse | null>(null);
+  const [response, setResponse] = useState<CreateTokenResult | null>(null);
   const [form, setForm] = useState<LaunchFormState>(DEFAULT_FORM);
   const [socialsOpen, setSocialsOpen] = useState(false);
   const [tags, setTags] = useState<string[]>([]);
@@ -86,7 +89,7 @@ export default function LaunchCoinModal() {
   const [initialBuyAmount, setInitialBuyAmount] = useState("");
   const [quoteData, setQuoteData] = useState<QuoteTokenInfoResponse | null>(null);
   const [quoteError, setQuoteError] = useState<string | null>(null);
-  const [pendingTransactions, setPendingTransactions] = useState<Record<string, unknown>[]>([]);
+  const [pendingTransactions, setPendingTransactions] = useState<CreateTokenTransaction[]>([]);
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [txSummary, setTxSummary] = useState<{
     tokenName: string;
@@ -174,12 +177,9 @@ export default function LaunchCoinModal() {
     }
   };
 
-  const getTransactionList = (data: CreateTokenTransactionResponse): Record<string, unknown>[] => {
+  const getTransactionList = (data: CreateTokenResult): CreateTokenTransaction[] => {
     if (Array.isArray(data.transactions)) {
-      return data.transactions.filter(
-        (transaction): transaction is Record<string, unknown> =>
-          Boolean(transaction) && typeof transaction === "object"
-      );
+      return data.transactions;
     }
     if (data.transaction && typeof data.transaction === "object") {
       return [data.transaction];
@@ -206,9 +206,12 @@ export default function LaunchCoinModal() {
         }),
       });
 
-      const data = (await res.json()) as CreateTokenTransactionResponse;
-      if (!res.ok || !data.success) {
+      const data = (await res.json()) as CreateTokenEndpointResponse;
+      if (data.success === false) {
         throw new Error(data.error || "Failed to create token transaction.");
+      }
+      if (!res.ok) {
+        throw new Error("Failed to create token transaction.");
       }
 
       setResponse(data);
@@ -298,9 +301,12 @@ export default function LaunchCoinModal() {
         body: JSON.stringify({ amount }),
       });
 
-      const quoteResult = (await quoteResponse.json()) as QuoteTokenResponse;
-      if (!quoteResponse.ok || !quoteResult.success || !quoteResult.quote) {
+      const quoteResult = (await quoteResponse.json()) as QuoteTokenEndpointResponse;
+      if (quoteResult.success === false) {
         throw new Error(quoteResult.error || "Failed to quote initial purchase.");
+      }
+      if (!quoteResponse.ok || !quoteResult.quote) {
+        throw new Error("Failed to quote initial purchase.");
       }
 
       setQuoteData(quoteResult.quote);
