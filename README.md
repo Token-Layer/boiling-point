@@ -7,7 +7,7 @@ Launch on Ethereum, let the crowd validate your idea, then open trading across m
 
 ## Back to Ethereum. Back to belief.
 
-Strangers once funded revolutions here. Now they fund you, $10k at a time.
+Strangers once funded revolutions here. Now they fund you, $10k at a time!
 
 - Ethereum at the core
 - Powered by the crowd
