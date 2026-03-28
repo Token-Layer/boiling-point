@@ -2,96 +2,105 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
+import type { Token } from "@/types/token";
 import LaunchCoinModal from "./LaunchCoinModal";
 import GlitchText from "./GlitchText";
 
 type Campaign = {
   id: string;
   name: string;
-  creator: string;
+  subtitle: string;
   logoUrl?: string;
-  tokenLayerId: string;
+  tokenLayerId: string | null;
   pitch: string;
-  launchChain: "ethereum" | "base";
-  targetUsd: number;
-  raisedUsd: number;
+  targetUsd: number | null;
+  raisedUsd: number | null;
+  progressPct?: number | null;
   volume24hUsd: number;
   change24hPercent: number;
   priceUsd: number;
   marketCapUsd: number;
-  backers: number;
+  communityText: string;
   tags: string[];
   status: "new" | "graduating" | "graduated";
   destinationChains: string[];
-  demoUrl: string;
+  primaryUrl?: string;
+  primaryLabel?: string;
   xUrl?: string;
   githubUrl?: string;
   discordUrl?: string;
+  isDemo?: boolean;
 };
 
-const CAMPAIGNS: Campaign[] = [
+const DEMO_CAMPAIGNS: Campaign[] = [
   {
     id: "memory-lane",
     name: "Memory Lane",
-    creator: "@vibearch",
+    subtitle: "by @vibearch",
     tokenLayerId: "memory-lane",
     pitch: "AI memory companion for founders shipping 7-day build sprints.",
-    launchChain: "ethereum",
     targetUsd: 25000,
     raisedUsd: 18750,
+    progressPct: 75,
     volume24hUsd: 68400,
     change24hPercent: 6.8,
     priceUsd: 0.0142,
     marketCapUsd: 423000,
-    backers: 214,
+    communityText: "214 backers",
     tags: ["AI", "Productivity", "Founder Tools"],
     status: "graduating",
     destinationChains: ["solana", "bnb", "base"],
-    demoUrl: "https://openclaw.ai",
+    primaryUrl: "https://openclaw.ai",
+    primaryLabel: "Demo",
     xUrl: "https://x.com/BoilingPoint_tl",
     githubUrl: "https://github.com/Token-Layer/openclaw-launchpad",
+    isDemo: true,
   },
   {
     id: "tasksmith",
     name: "Tasksmith",
-    creator: "@nofileleft",
+    subtitle: "by @nofileleft",
     tokenLayerId: "tasksmith",
     pitch: "Voice-first task agent that writes and executes tiny workflow scripts.",
-    launchChain: "base",
     targetUsd: 25000,
     raisedUsd: 9200,
+    progressPct: 37,
     volume24hUsd: 17900,
     change24hPercent: -3.2,
     priceUsd: 0.0048,
     marketCapUsd: 126000,
-    backers: 83,
+    communityText: "83 backers",
     tags: ["Voice", "Automation", "Productivity"],
     status: "new",
     destinationChains: ["base"],
-    demoUrl: "https://openclaw.ai",
+    primaryUrl: "https://openclaw.ai",
+    primaryLabel: "Demo",
     discordUrl: "https://discord.com",
+    isDemo: true,
   },
   {
     id: "echo-rangers",
     name: "Echo Rangers",
-    creator: "@agentgarden",
+    subtitle: "by @agentgarden",
     tokenLayerId: "echo-rangers",
     pitch: "A social copilot that turns clips into auto-published narrative threads.",
-    launchChain: "ethereum",
     targetUsd: 25000,
     raisedUsd: 24100,
+    progressPct: 96,
     volume24hUsd: 112600,
     change24hPercent: 12.4,
     priceUsd: 0.0215,
     marketCapUsd: 612000,
-    backers: 302,
+    communityText: "302 backers",
     tags: ["Social", "AI", "Content"],
     status: "graduated",
     destinationChains: ["solana", "bnb", "base"],
-    demoUrl: "https://openclaw.ai",
+    primaryUrl: "https://openclaw.ai",
+    primaryLabel: "Demo",
     xUrl: "https://x.com/BoilingPoint_tl",
     githubUrl: "https://github.com/Token-Layer/openclaw-launchpad",
     discordUrl: "https://discord.com",
+    isDemo: true,
   },
 ];
 
@@ -131,7 +140,6 @@ const CHAIN_ICONS: Record<string, string> = {
   polygon: "/images/icons/polygon.svg",
 };
 
-const LIVE_CAMPAIGN_TAGS = Array.from(new Set(CAMPAIGNS.flatMap((campaign) => campaign.tags)));
 const STATUS_FILTERS = ["all", "new", "graduating", "graduated"] as const;
 const STATUS_PRIORITY: Record<Campaign["status"], number> = {
   graduating: 0,
@@ -178,6 +186,99 @@ function getChainLabel(chain: string) {
 
 function getTradeUrl(tokenLayerId: string) {
   return `https://app.tokenlayer.network/token/${tokenLayerId}`;
+}
+
+function formatLaunchSubtitle(createdAt: string) {
+  const createdDate = new Date(createdAt);
+  if (Number.isNaN(createdDate.getTime())) return "Recently launched";
+
+  return `Launched ${new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+  }).format(createdDate)}`;
+}
+
+function normalizeUrl(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) return trimmed;
+  return `https://${trimmed}`;
+}
+
+function getTokenTags(token: Token): string[] {
+  return token.hashtags
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .map((value) => value.trim())
+    .slice(0, 3);
+}
+
+function getPrimaryUrl(token: Token): { url?: string; label?: string } {
+  const websiteUrl = normalizeUrl(token.indexer_metadata?.website);
+
+  if (websiteUrl) return { url: websiteUrl, label: "Site" };
+
+  return {};
+}
+
+function getSocialUrl(token: Token, type: "x" | "github" | "discord"): string | undefined {
+  if (type === "x") {
+    return normalizeUrl(token.indexer_metadata?.twitter_url);
+  }
+
+  if (type === "github") {
+    return normalizeUrl(token.indexer_metadata?.github_url);
+  }
+
+  return normalizeUrl(token.indexer_metadata?.discord_url);
+}
+
+function getCampaignStatus(token: Token): Campaign["status"] {
+  if (token.token_layer_id) return "graduated";
+  const progress = token.launchpad_progress_pct ?? 0;
+  if (progress >= 75) return "graduating";
+  return "new";
+}
+
+function mapTokenToCampaign(token: Token): Campaign {
+  const { url: primaryUrl, label: primaryLabel } = getPrimaryUrl(token);
+  const progressPct = token.token_layer_id
+    ? 100
+    : Math.max(0, Math.min(100, token.launchpad_progress_pct ?? 0));
+  const targetUsd = token.market_cap && progressPct > 0
+    ? token.market_cap / (progressPct / 100)
+    : null;
+  const raisedUsd = targetUsd && progressPct > 0
+    ? targetUsd * (progressPct / 100)
+    : null;
+
+  return {
+    id: token.id,
+    name: token.indexer_metadata?.name ?? token.name,
+    subtitle: formatLaunchSubtitle(token.created_at),
+    logoUrl: token.indexer_metadata?.image_url ?? token.logo ?? undefined,
+    tokenLayerId: token.token_layer_id,
+    pitch: token.indexer_metadata?.description ?? token.description ?? "Recently launched on Token Layer.",
+    targetUsd,
+    raisedUsd,
+    progressPct,
+    volume24hUsd: token.volume_24h ?? 0,
+    change24hPercent: token.price_change_24h_percent ?? 0,
+    priceUsd: token.price ?? 0,
+    marketCapUsd: token.market_cap ?? 0,
+    communityText: token.holders_count !== null ? `${token.holders_count} holders` : "New launch",
+    tags: getTokenTags(token),
+    status: getCampaignStatus(token),
+    destinationChains: token.token_addresses
+      .filter((address, index, addresses) => addresses.findIndex((entry) => entry.chain === address.chain) === index)
+      .map((address) => address.chain),
+    primaryUrl,
+    primaryLabel,
+    xUrl: getSocialUrl(token, "x"),
+    githubUrl: getSocialUrl(token, "github"),
+    discordUrl: getSocialUrl(token, "discord"),
+    isDemo: false,
+  };
 }
 
 function ChainPill({ chain }: { chain: string }) {
@@ -482,9 +583,14 @@ function ChainOrbit() {
 }
 
 function CampaignCard({ campaign }: { campaign: Campaign }) {
-  const progress = Math.min(100, Math.round((campaign.raisedUsd / campaign.targetUsd) * 100));
+  const computedProgress =
+    campaign.progressPct ??
+    (campaign.raisedUsd !== null && campaign.targetUsd
+      ? (campaign.raisedUsd / campaign.targetUsd) * 100
+      : 0);
+  const progress = Math.min(100, Math.max(0, Math.round(computedProgress)));
   const isPositive24h = campaign.change24hPercent >= 0;
-  const tradeUrl = getTradeUrl(campaign.tokenLayerId);
+  const tradeUrl = campaign.tokenLayerId ? getTradeUrl(campaign.tokenLayerId) : undefined;
   const initials = campaign.name
     .split(" ")
     .map((part) => part.charAt(0))
@@ -499,7 +605,15 @@ function CampaignCard({ campaign }: { campaign: Campaign }) {
   };
 
   return (
-    <article className="glitch-card rounded-2xl bg-[#0a0f1a]/80 border border-[rgba(136,146,176,0.12)] p-5 hover:border-[rgba(0,229,204,0.28)] transition-colors duration-200">
+    <article className="glitch-card group/card relative rounded-2xl bg-[#0a0f1a]/80 border border-[rgba(136,146,176,0.12)] p-5 hover:border-[rgba(0,229,204,0.28)] transition-colors duration-200 overflow-hidden">
+      {campaign.isDemo && (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-[rgba(12,16,26,0.72)] opacity-0 transition-opacity duration-200 group-hover/card:opacity-100">
+          <div className="rounded-xl border border-[rgba(255,255,255,0.12)] bg-[rgba(17,24,39,0.82)] px-4 py-2.5 text-center shadow-[0_12px_30px_-18px_rgba(0,0,0,0.9)]">
+            <p className="text-sm font-medium text-[#f0f4ff]">This is a demo project</p>
+            <p className="mt-1 text-xs text-[#9aa6c7]">Real launches will replace these cards as they go live.</p>
+          </div>
+        </div>
+      )}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-11 h-11 rounded-xl overflow-hidden border border-[rgba(136,146,176,0.2)] bg-[#111827] flex items-center justify-center text-[11px] font-semibold text-[#f0f4ff] flex-shrink-0">
@@ -523,7 +637,7 @@ function CampaignCard({ campaign }: { campaign: Campaign }) {
                 triggerOnParentClass="glitch-card"
               />
             </p>
-            <p className="text-[#5a6480] text-xs mt-0.5">by {campaign.creator}</p>
+            <p className="text-[#5a6480] text-xs mt-0.5">{campaign.subtitle}</p>
           </div>
         </div>
         <span className={`px-2.5 py-1 rounded-lg text-[11px] font-medium uppercase tracking-wider border ${statusTone[campaign.status]}`}>
@@ -580,7 +694,7 @@ function CampaignCard({ campaign }: { campaign: Campaign }) {
 
       <div className="mt-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <p className="text-[#5a6480] text-xs">{campaign.backers} backers</p>
+          <p className="text-[#5a6480] text-xs">{campaign.communityText}</p>
           <div className="flex items-center gap-2">
             {campaign.xUrl && (
               <a
@@ -624,22 +738,26 @@ function CampaignCard({ campaign }: { campaign: Campaign }) {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <a
-            href={campaign.demoUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs font-medium text-[#00e5cc] hover:text-[#5ff4e1] transition-colors"
-          >
-            Demo
-          </a>
-          <a
-            href={tradeUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-medium text-[#f0f4ff] bg-[#111827] border border-[rgba(136,146,176,0.2)] hover:border-[rgba(0,229,204,0.35)] hover:text-[#00e5cc] transition-colors"
-          >
-            Trade
-          </a>
+          {campaign.primaryUrl && campaign.primaryLabel && (
+            <a
+              href={campaign.primaryUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs font-medium text-[#00e5cc] hover:text-[#5ff4e1] transition-colors"
+            >
+              {campaign.primaryLabel}
+            </a>
+          )}
+          {tradeUrl && (
+            <a
+              href={tradeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-medium text-[#f0f4ff] bg-[#111827] border border-[rgba(136,146,176,0.2)] hover:border-[rgba(0,229,204,0.35)] hover:text-[#00e5cc] transition-colors"
+            >
+              Trade
+            </a>
+          )}
         </div>
       </div>
     </article>
@@ -710,22 +828,22 @@ function HowItWorksModal() {
               <ol className="space-y-3">
                 <li className="rounded-xl border border-[rgba(136,146,176,0.2)] bg-[#111827]/70 p-4">
                   <p className="text-sm text-[#5a6480] mb-1">Step 1</p>
-                  <p className="text-[#f0f4ff]">Create a coin for your vibe-coded MVP - make sure you provide a demo link.</p>
+                  <p className="text-[#f0f4ff]">Launch your app by creating its coin for your vibe-coded MVP. Make sure you provide a demo link.</p>
                 </li>
                 <li className="rounded-xl border border-[rgba(136,146,176,0.2)] bg-[#111827]/70 p-4">
                   <p className="text-sm text-[#5a6480] mb-1">Step 2</p>
-                  <p className="text-[#f0f4ff]">The crowd validates your idea and invest.</p>
+                  <p className="text-[#f0f4ff]">The crowd validates your app by buying the coin and funding the launch.</p>
                 </li>
                 <li className="rounded-xl border border-[rgba(136,146,176,0.2)] bg-[#111827]/70 p-4">
                   <p className="text-sm text-[#5a6480] mb-1">Step 3</p>
                   <p className="text-[#f0f4ff]">
-                    When your token graduates, you receive $10k with ongoing trading fees. Your coin is instantly tradable across the most liquid chains.
+                    When your app&apos;s coin graduates, you receive $10k with ongoing trading fees. The coin is instantly tradable across the most liquid chains.
                   </p>
                 </li>
               </ol>
 
               <p className="text-sm text-[#9aa6c7] leading-relaxed">
-                Graduation: Your coin graduates at $100,000 USDT market cap (about $26,400 USDT raised). On graduation, creators receive $10,000 USDT and $15,000 USDT is seeded as Ethereum liquidity on Uniswap.
+                Graduation: Your app&apos;s coin graduates at $100,000 USDT market cap (about $26,400 USDT raised). On graduation, creators receive $10,000 USDT and $15,000 USDT is seeded as Ethereum liquidity on Uniswap.
               </p>
 
               <div>
@@ -751,17 +869,68 @@ function HowItWorksModal() {
 }
 
 export default function LaunchpadOverview() {
+  const [recentTokens, setRecentTokens] = useState<Token[]>([]);
+  const [recentTokensError, setRecentTokensError] = useState<string | null>(null);
   const [selectedLiveTag, setSelectedLiveTag] = useState<string>("All");
   const [selectedStatus, setSelectedStatus] = useState<(typeof STATUS_FILTERS)[number]>("all");
+  
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function loadRecentTokens() {
+      try {
+        setRecentTokensError(null);
+
+        const response = await fetch("/api/tokens", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            filter: "all",
+            sortBy: "created_at",
+            limit: 6,
+            offset: 0,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch recent tokens");
+        }
+
+        const data = (await response.json()) as { tokens?: Token[] };
+        if (!isCancelled) {
+          setRecentTokens(Array.isArray(data.tokens) ? data.tokens : []);
+        }
+      } catch (error) {
+        if (!isCancelled) {
+          setRecentTokensError(error instanceof Error ? error.message : "Failed to fetch recent tokens");
+        }
+      }
+    }
+
+    loadRecentTokens();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
+  const liveCampaigns = useMemo(() => recentTokens.map(mapTokenToCampaign), [recentTokens]);
+  const campaigns = useMemo(() => {
+    return [...DEMO_CAMPAIGNS, ...liveCampaigns];
+  }, [liveCampaigns]);
+  const liveCampaignTags = useMemo(
+    () => Array.from(new Set(campaigns.flatMap((campaign) => campaign.tags))),
+    [campaigns]
+  );
   const filteredCampaigns = useMemo(() => {
-    return CAMPAIGNS
+    return campaigns
       .filter((campaign) => {
         if (selectedStatus !== "all" && campaign.status !== selectedStatus) return false;
         if (selectedLiveTag !== "All" && !campaign.tags.includes(selectedLiveTag)) return false;
         return true;
       })
       .sort((a, b) => STATUS_PRIORITY[a.status] - STATUS_PRIORITY[b.status]);
-  }, [selectedLiveTag, selectedStatus]);
+  }, [campaigns, selectedLiveTag, selectedStatus]);
 
   return (
     <section className="relative pt-12 pb-4 px-6 overflow-hidden">
@@ -883,7 +1052,7 @@ export default function LaunchpadOverview() {
               >
                 All
               </button>
-              {LIVE_CAMPAIGN_TAGS.map((tag) => (
+              {liveCampaignTags.map((tag) => (
                 <button
                   key={tag}
                   type="button"
@@ -904,6 +1073,11 @@ export default function LaunchpadOverview() {
               <CampaignCard key={campaign.id} campaign={campaign} />
             ))}
           </div>
+          {recentTokensError && liveCampaigns.length === 0 && (
+            <div className="mt-4 rounded-xl border border-[rgba(255,77,77,0.16)] bg-[#0a0f1a]/70 p-4 text-sm text-[#ff8a8a]">
+              Live launch data is unavailable right now, so demo cards are being shown instead.
+            </div>
+          )}
           {filteredCampaigns.length === 0 && (
             <div className="mt-4 rounded-xl border border-[rgba(136,146,176,0.14)] bg-[#0a0f1a]/70 p-4 text-sm text-[#8892b0]">
               No live campaigns match these filters yet.

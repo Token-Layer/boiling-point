@@ -1,5 +1,4 @@
 import LaunchpadOverview from "@/components/LaunchpadOverview";
-import TokenGrid from "@/components/TokenGrid";
 import TopNav from "@/components/TopNav";
 
 export default function Home() {
@@ -7,11 +6,6 @@ export default function Home() {
     <main className="min-h-screen">
       <TopNav />
       <LaunchpadOverview />
-      <TokenGrid
-        sectionId="recently-launched"
-        title="Recently Launched Tokens"
-        description="Graduated tokens and active markets."
-      />
 
       {/* Footer */}
       <footer className="py-8 px-6 border-t border-[rgba(136,146,176,0.15)]">

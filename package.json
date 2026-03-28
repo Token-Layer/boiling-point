@@ -12,7 +12,7 @@
     "@metamask/sdk": "^0.34.0",
     "@rainbow-me/rainbowkit": "^2.2.10",
     "@tanstack/react-query": "^5.90.21",
-    "@token-layer/sdk-typescript": "^0.1.21",
+    "@token-layer/sdk-typescript": "^0.1.22",
     "next": "16.2.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
